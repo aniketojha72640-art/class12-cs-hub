@@ -10,21 +10,33 @@ const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-const textureLoader = new THREE.TextureLoader();
-textureLoader.setCrossOrigin("anonymous"); 
+// Create a unified group for the levitating logos
+const logoGroup = new THREE.Group();
+scene.add(logoGroup);
 
-const boxMaterials = [
-  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), 
-  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), 
-  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), 
-  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), 
-  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }), // FRONT
-  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 })  
-];
+// 1. MySQL Logo Concept (Smooth Database Cylinders)
+const dbMaterial = new THREE.MeshStandardMaterial({ color: 0xe48e00, roughness: 0.2, metalness: 0.1 }); 
+const dbGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.3, 64); // 64 segments for super smooth curves!
+for (let i = -1; i <= 1; i++) {
+  const disc = new THREE.Mesh(dbGeo, dbMaterial);
+  disc.position.y = i * 0.4;
+  logoGroup.add(disc);
+}
 
-const boxGeo = new THREE.BoxGeometry(1.8, 2.6, 0.5);
-const box = new THREE.Mesh(boxGeo, boxMaterials);
-scene.add(box);
+// 2. Python Logo Concept (Interlocking Smooth Rings)
+const pyBlueMat = new THREE.MeshStandardMaterial({ color: 0x306998, roughness: 0.1, metalness: 0.2 });
+const pyYellowMat = new THREE.MeshStandardMaterial({ color: 0xFFD43B, roughness: 0.1, metalness: 0.2 });
+const ringGeo = new THREE.TorusGeometry(1.2, 0.15, 32, 100); // 100 segments for perfectly round tubes
+
+const blueRing = new THREE.Mesh(ringGeo, pyBlueMat);
+blueRing.rotation.x = 1.5;
+blueRing.rotation.y = 0.5;
+logoGroup.add(blueRing);
+
+const yellowRing = new THREE.Mesh(ringGeo, pyYellowMat);
+yellowRing.rotation.x = -1.5;
+yellowRing.rotation.y = -0.5;
+logoGroup.add(yellowRing);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
 scene.add(ambientLight);
@@ -32,11 +44,16 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 1);
 dirLight.position.set(5, 5, 5);
 scene.add(dirLight);
 
+// Levitation Animation
 function animate() {
   requestAnimationFrame(animate);
-  box.rotation.y += 0.005;
-  box.rotation.x = Math.sin(Date.now() * 0.002) * 0.05;
-  box.position.y = -0.35 + Math.sin(Date.now() * 0.002) * 0.15; 
+  
+  // Gentle spin
+  logoGroup.rotation.y += 0.005;
+  
+  // Smooth up and down levitation using sine waves
+  logoGroup.position.y = -0.2 + Math.sin(Date.now() * 0.002) * 0.15; 
+  
   renderer.render(scene, camera);
 }
 animate();
@@ -45,7 +62,7 @@ function adjustCamera() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  camera.position.z = window.innerWidth > 768 ? 10 : 8.5; 
+  camera.position.z = window.innerWidth > 768 ? 9 : 7.5; 
   camera.position.y = 0; 
 }
 window.addEventListener("resize", adjustCamera);
@@ -89,17 +106,6 @@ function updateUI() {
   document.getElementById("proj-desc").textContent = p.description;
   document.getElementById("proj-indicator").textContent = `${currentIndex + 1} / ${projects.length}`;
   
-  box.material.forEach((mat, index) => {
-    if (index !== 4) mat.color.set(p.color); 
-  });
-
-  const coverUrl = `https://placehold.co/400x600/ffffff/333333.png?text=${encodeURIComponent(p.title)}`;
-  
-  textureLoader.load(coverUrl, (texture) => {
-    box.material[4].map = texture;
-    box.material[4].needsUpdate = true;
-  });
-
   updateMenuState();
   
   previewImages = [
