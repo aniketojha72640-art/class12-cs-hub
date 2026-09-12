@@ -10,17 +10,16 @@ const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-// 1. Create a Texture Loader
 const textureLoader = new THREE.TextureLoader();
+textureLoader.setCrossOrigin("anonymous"); 
 
-// 2. Create an array of 6 materials (one for each face of the box)
 const boxMaterials = [
-  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), // Right
-  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), // Left
-  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), // Top
-  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), // Bottom
-  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }), // FRONT (Will hold image)
-  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 })  // Back
+  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), 
+  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), 
+  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), 
+  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 }), 
+  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }), // FRONT
+  new THREE.MeshStandardMaterial({ color: 0xffb703, roughness: 0.2 })  
 ];
 
 const boxGeo = new THREE.BoxGeometry(1.8, 2.6, 0.5);
@@ -90,14 +89,12 @@ function updateUI() {
   document.getElementById("proj-desc").textContent = p.description;
   document.getElementById("proj-indicator").textContent = `${currentIndex + 1} / ${projects.length}`;
   
-  // Update box side colors
   box.material.forEach((mat, index) => {
-    if (index !== 4) mat.color.set(p.color); // Skip the front face
+    if (index !== 4) mat.color.set(p.color); 
   });
 
-  // Apply a dynamic cover texture to the front face (Index 4)
-  // Note: For now, this loads a placeholder. When you upload your real images, put them in a folder and link them here!
-  const coverUrl = `https://via.placeholder.com/400x600/ffffff/333333?text=${encodeURIComponent(p.title)}`;
+  const coverUrl = `https://placehold.co/400x600/ffffff/333333.png?text=${encodeURIComponent(p.title)}`;
+  
   textureLoader.load(coverUrl, (texture) => {
     box.material[4].map = texture;
     box.material[4].needsUpdate = true;
@@ -106,8 +103,8 @@ function updateUI() {
   updateMenuState();
   
   previewImages = [
-    `https://via.placeholder.com/800x500/ffb703/1a1a1a?text=${encodeURIComponent(p.title)}+Preview+1`,
-    `https://via.placeholder.com/800x500/8e4b3e/ffffff?text=${encodeURIComponent(p.title)}+Preview+2`
+    `https://placehold.co/800x500/ffb703/1a1a1a.png?text=${encodeURIComponent(p.title)}+Preview+1`,
+    `https://placehold.co/800x500/8e4b3e/ffffff.png?text=${encodeURIComponent(p.title)}+Preview+2`
   ];
   currentImageIndex = 0;
 }
