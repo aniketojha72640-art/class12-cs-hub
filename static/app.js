@@ -10,23 +10,20 @@ const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-// Create a unified group for the levitating logos
 const logoGroup = new THREE.Group();
 scene.add(logoGroup);
 
-// 1. MySQL Logo Concept (Smooth Database Cylinders)
 const dbMaterial = new THREE.MeshStandardMaterial({ color: 0xe48e00, roughness: 0.2, metalness: 0.1 }); 
-const dbGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.3, 64); // 64 segments for super smooth curves!
+const dbGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.3, 64); 
 for (let i = -1; i <= 1; i++) {
   const disc = new THREE.Mesh(dbGeo, dbMaterial);
   disc.position.y = i * 0.4;
   logoGroup.add(disc);
 }
 
-// 2. Python Logo Concept (Interlocking Smooth Rings)
 const pyBlueMat = new THREE.MeshStandardMaterial({ color: 0x306998, roughness: 0.1, metalness: 0.2 });
 const pyYellowMat = new THREE.MeshStandardMaterial({ color: 0xFFD43B, roughness: 0.1, metalness: 0.2 });
-const ringGeo = new THREE.TorusGeometry(1.2, 0.15, 32, 100); // 100 segments for perfectly round tubes
+const ringGeo = new THREE.TorusGeometry(1.2, 0.15, 32, 100); 
 
 const blueRing = new THREE.Mesh(ringGeo, pyBlueMat);
 blueRing.rotation.x = 1.5;
@@ -44,15 +41,14 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 1);
 dirLight.position.set(5, 5, 5);
 scene.add(dirLight);
 
-// Levitation Animation
 function animate() {
   requestAnimationFrame(animate);
   
-  // Gentle spin
-  logoGroup.rotation.y += 0.005;
+  // SLOWED DOWN: Gentle, premium spin
+  logoGroup.rotation.y += 0.0015;
   
-  // Smooth up and down levitation using sine waves
-  logoGroup.position.y = -0.2 + Math.sin(Date.now() * 0.002) * 0.15; 
+  // SLOWED DOWN: Relaxed up and down levitation
+  logoGroup.position.y = -0.2 + Math.sin(Date.now() * 0.0008) * 0.15; 
   
   renderer.render(scene, camera);
 }
