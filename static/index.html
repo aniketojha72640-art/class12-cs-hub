@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Class 12 CS Hub</title>
+  <link rel="stylesheet" href="style.css?v=6" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <div class="bg-shape shape1"></div>
+  <div class="bg-shape shape2"></div>
+  <div class="bg-shape shape3"></div>
+
+  <div id="main-app" class="main-app">
+    <canvas id="webgl"></canvas>
+    <div class="object-shadow"></div>
+
+    <div id="intro-screen" class="intro-screen">
+      <div class="logo intro-logo">PY<strong>CS</strong></div>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/c/c3/Python-logo-notext.svg" alt="Python Logo" class="python-logo">
+      <p class="intro-desc">Your cheerful hub for pre-built Computer Science projects. Download, learn, and score high!</p>
+      <button id="btn-start" class="btn-download primary-btn">START EXPLORING</button>
+    </div>
+
+    <header class="navbar hidden-ui">
+      <div class="logo main-logo">PY<strong>CS</strong></div>
+      <button id="btn-menu" class="kebab-btn">&#8942;</button>
+    </header>
+
+    <main class="content-container hidden-ui">
+      <div class="text-wrapper">
+        <div class="meta-tag" id="proj-category">LOADING...</div>
+        <div class="title-container">
+          <h1 class="project-title" id="proj-title">INITIALIZING</h1>
+        </div>
+        <p class="project-desc" id="proj-desc"></p>
+      </div>
+      
+      <!-- ADDED: Action bar now holds two buttons -->
+      <div class="action-bar">
+        <button class="btn-preview secondary-btn" id="btn-preview">PREVIEW</button>
+        <button class="btn-download primary-btn" id="btn-download">GET ZIP</button>
+      </div>
+
+      <div class="carousel-nav">
+        <button id="btn-prev" class="nav-btn">&#8592; PREV</button>
+        <span id="proj-indicator">1 / 4</span>
+        <button id="btn-next" class="nav-btn">NEXT &#8594;</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="menu-overlay" class="menu-overlay"></div>
+  <nav id="side-menu" class="side-menu">
+    <div class="menu-header">
+      <div class="menu-branding">
+        <span class="greeting">Welcome student,</span>
+        <h2>Class 12 CS</h2>
+      </div>
+      <button id="btn-close" class="close-btn">&times;</button>
+    </div>
+    <div class="menu-category">Menu</div>
+    <ul id="project-list"></ul>
+  </nav>
+
+  <!-- ADDED: Elegant Image Preview Modal -->
+  <div id="preview-modal" class="preview-modal">
+    <div class="modal-content">
+      <button id="close-modal" class="close-modal">&times;</button>
+      <div class="modal-image-container">
+        <button id="modal-prev" class="modal-nav">&#8592;</button>
+        <img id="preview-image" src="" alt="Project Preview">
+        <button id="modal-next" class="modal-nav">&#8594;</button>
+      </div>
+      <div id="modal-indicator" class="modal-indicator">1 / 3</div>
+    </div>
+  </div>
+
+  <script src="app.js?v=6"></script>
+</body>
+</html>
