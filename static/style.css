@@ -76,3 +76,4 @@ body.started .hidden-ui { opacity: 1; }
 .modal-nav:hover { background: #ffb703; color: #1a1a1a; border-color: #ffb703; transform: scale(1.05); }
 .modal-indicator { text-align: center; margin-top: 20px; font-weight: 800; color: #555; letter-spacing: 2px; font-size: 0.9rem; }
 button, a { -webkit-tap-highlight-color: transparent; outline: none; }
+* { -webkit-tap-highlight-color: transparent !important; }
