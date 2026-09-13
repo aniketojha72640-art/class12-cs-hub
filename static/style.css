@@ -77,3 +77,4 @@ body.started .hidden-ui { opacity: 1; }
 .modal-indicator { text-align: center; margin-top: 20px; font-weight: 800; color: #555; letter-spacing: 2px; font-size: 0.9rem; }
 button, a { -webkit-tap-highlight-color: transparent; outline: none; }
 * { -webkit-tap-highlight-color: transparent !important; }
+#proj-indicator { background: #1a1a1a !important; color: #ffb703 !important; padding: 6px 18px !important; border-radius: 20px !important; font-weight: 900 !important; font-size: 1.1rem !important; box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important; }
