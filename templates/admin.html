@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -29,13 +29,13 @@
 
         <!-- Upload Form -->
         <div class="card">
-            <h2>Upload New Project</h2>
+            <h2>Upload / Edit Project</h2>
             <form id="uploadForm">
                 <input type="text" id="title" name="title" placeholder="Project Title" required>
                 <textarea id="desc" name="desc" placeholder="Project Description..." rows="3" required></textarea>
                 
-                <label style="display:block; margin-top:15px; color:#aaa;">Upload Thumbnail Image:</label>
-                <input type="file" id="image" name="image" accept="image/*" required>
+                <label style="display:block; margin-top:15px; color:#aaa;">Upload Project Images (Multiple):</label>
+                <input type="file" id="images" name="images" accept="image/*" multiple required>
 
                 <label style="display:block; margin-top:15px; color:#aaa;">Upload ZIP File:</label>
                 <input type="file" id="zipfile" name="zipfile" accept=".zip" required>
@@ -64,117 +64,112 @@
     </div>
 
     <script>
-         // Tab-Close Ghost Session Killer
-if (!sessionStorage.getItem("vault_auth")) {
-    fetch('/admin/logout', {method: 'POST'}).then(() => window.location.href = "/admin");
-}
-
-let editModeId = null; // Tracks if we are editing or adding
-
-// Upload & Edit Logic
-document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const statusMsg = document.getElementById('statusMsg');
-    
-    statusMsg.textContent = editModeId ? "Updating Cloud Storage..." : "Uploading to Cloud Storage...";
-    statusMsg.style.color = "#f39c12";
-
-    const formData = new FormData(form);
-    const method = editModeId ? 'PUT' : 'POST';
-    if (editModeId) formData.append('id', editModeId); // Attach ID if updating
-
-    try {
-        const res = await fetch('/api/admin/projects', {
-            method: method,
-            body: formData
-        });
-        
-        if(res.ok) {
-            statusMsg.textContent = editModeId ? "Successfully updated!" : "Successfully deployed!";
-            statusMsg.style.color = "#2ecc71";
-            
-            // Reset form and UI back to "Add Mode"
-            form.reset();
-            editModeId = null;
-            document.getElementById('image').required = true;
-            document.getElementById('zipfile').required = true;
-            document.querySelector('#uploadForm button[type="submit"]').textContent = "Deploy to Cloud";
-            
-            fetchProjects();
-            setTimeout(() => { statusMsg.textContent = ""; }, 3000);
-        } else {
-            throw new Error("Upload Failed");
-        }
-    } catch (err) {
-        statusMsg.textContent = "Error communicating with cloud.";
-        statusMsg.style.color = "#e74c3c";
-    }
-});
-
-// Trigger Edit Mode
-function editProject(id, title, desc) {
-    editModeId = id;
-    document.getElementById('title').value = title;
-    document.getElementById('desc').value = desc;
-    
-    // Make files optional so you don't have to re-upload them
-    document.getElementById('image').required = false;
-    document.getElementById('zipfile').required = false;
-    
-    document.querySelector('#uploadForm button[type="submit"]').textContent = "Update Cloud Project";
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// Fetch Data Logic
-async function fetchProjects() {
-    const tbody = document.getElementById('projectList');
-    try {
-        const res = await fetch('/api/admin/projects');
-        const data = await res.json();
-        
-        tbody.innerHTML = "";
-        if (data.length === 0) {
-            tbody.innerHTML = "<tr><td colspan='3'>No projects found in vault.</td></tr>";
-            return;
+        // Session Killer
+        if (!sessionStorage.getItem("vault_auth")) {
+            fetch('/admin/logout', {method: 'POST'}).then(() => window.location.href = "/admin");
         }
 
-        data.forEach(proj => {
-            const tr = document.createElement('tr');
-            // Safely escape quotes for the JS function
-            const safeTitle = proj.title.replace(/'/g, "\\'");
-            const safeDesc = proj.description.replace(/'/g, "\\'");
+        let editModeId = null;
+
+        // Upload & Edit Logic
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const statusMsg = document.getElementById('statusMsg');
             
-            tr.innerHTML = `
-                <td><strong>${proj.title}</strong></td>
-                <td style="color:#aaa; font-size:12px;">ZIP: ${proj.filename || 'None'}<br>IMG: ${proj.image_filename || 'None'}</td>
-                <td>
-                    <button onclick="editProject(${proj.id}, '${safeTitle}', '${safeDesc}')" style="background:#3498db; color:white; padding:6px 12px; margin-right:5px; border-radius:4px; border:none; cursor:pointer;">Edit</button>
-                    <button class="delete-btn" onclick="deleteProject(${proj.id})">Delete</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
+            statusMsg.textContent = editModeId ? "Updating Cloud Storage..." : "Uploading to Cloud Storage...";
+            statusMsg.style.color = "#f39c12";
+
+            const formData = new FormData(form);
+            const method = editModeId ? 'PUT' : 'POST';
+            if (editModeId) formData.append('id', editModeId);
+
+            try {
+                const res = await fetch('/api/admin/projects', {
+                    method: method,
+                    body: formData
+                });
+                
+                if(res.ok) {
+                    statusMsg.textContent = editModeId ? "Successfully updated!" : "Successfully deployed!";
+                    statusMsg.style.color = "#2ecc71";
+                    
+                    form.reset();
+                    editModeId = null;
+                    document.getElementById('images').required = true;
+                    document.getElementById('zipfile').required = true;
+                    document.querySelector('#uploadForm button[type="submit"]').textContent = "Deploy to Cloud";
+                    
+                    fetchProjects();
+                    setTimeout(() => { statusMsg.textContent = ""; }, 3000);
+                } else {
+                    throw new Error("Upload Failed");
+                }
+            } catch (err) {
+                statusMsg.textContent = "Error communicating with cloud.";
+                statusMsg.style.color = "#e74c3c";
+            }
         });
-    } catch (err) {
-        tbody.innerHTML = "<tr><td colspan='3' style='color:#e74c3c;'>Error loading database.</td></tr>";
-    }
-}
 
-// Delete Logic
-async function deleteProject(id) {
-    if(!confirm("Are you sure? This will permanently delete the text, image, and ZIP file.")) return;
-    
-    await fetch('/api/admin/projects', {
-        method: 'DELETE',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ids: [id]})
-    });
-    fetchProjects(); 
-}
+        // Trigger Edit Mode
+        function editProject(id, title, desc) {
+            editModeId = id;
+            document.getElementById('title').value = title;
+            document.getElementById('desc').value = desc;
+            
+            document.getElementById('images').required = false;
+            document.getElementById('zipfile').required = false;
+            
+            document.querySelector('#uploadForm button[type="submit"]').textContent = "Update Cloud Project";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
 
-fetchProjects();
+        // Fetch Data Logic
+        async function fetchProjects() {
+            const tbody = document.getElementById('projectList');
+            try {
+                const res = await fetch('/api/admin/projects');
+                const data = await res.json();
+                
+                tbody.innerHTML = "";
+                if (data.length === 0) {
+                    tbody.innerHTML = "<tr><td colspan='3'>No projects found in vault.</td></tr>";
+                    return;
+                }
 
-     
+                data.forEach(proj => {
+                    const tr = document.createElement('tr');
+                    const safeTitle = proj.title.replace(/'/g, "\\'");
+                    const safeDesc = proj.description.replace(/'/g, "\\'");
+                    
+                    tr.innerHTML = `
+                        <td><strong>${proj.title}</strong></td>
+                        <td style="color:#aaa; font-size:12px;">ZIP: ${proj.filename || 'None'}<br>IMG: ${proj.image_filename || 'None'}</td>
+                        <td>
+                            <button onclick="editProject(${proj.id}, '${safeTitle}', '${safeDesc}')" style="background:#3498db; color:white; padding:6px 12px; margin-right:5px; border-radius:4px; border:none; cursor:pointer;">Edit</button>
+                            <button class="delete-btn" onclick="deleteProject(${proj.id})">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                tbody.innerHTML = "<tr><td colspan='3' style='color:#e74c3c;'>Error loading database.</td></tr>";
+            }
+        }
+
+        // Delete Logic
+        async function deleteProject(id) {
+            if(!confirm("Are you sure? This will permanently delete the text, image, and ZIP file.")) return;
+            
+            await fetch('/api/admin/projects', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ids: [id]})
+            });
+            fetchProjects(); 
+        }
+
+        fetchProjects();
     </script>
 </body>
 </html>
