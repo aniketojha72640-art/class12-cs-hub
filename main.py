@@ -70,25 +70,23 @@ from fastapi import Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from supabase import create_client, Client
 
-# Load the One-and-Only Master Password from Render
+# Load Keys from Render Environment
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 ADMIN_PASS = os.environ.get("ADMIN_PASSWORD", "fallback_lock")
 
-# Connect to the Cloud
+# Connect to Supabase
 supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# The Ultimate Security Bouncer
 def verify_security_clearance(request: Request):
     if request.cookies.get("admin_lock") != "granted":
         raise HTTPException(status_code=401, detail="Access Denied.")
 
-# The Isolated Login Page
+# Login Screen (with Session Storage Tag)
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_portal(request: Request):
-    # If already logged in, show the dashboard
     if request.cookies.get("admin_lock") == "granted":
         try:
             with open("templates/admin.html", "r") as file:
@@ -96,7 +94,6 @@ async def admin_portal(request: Request):
         except FileNotFoundError:
             return "Error: Make sure admin.html is inside a 'templates' folder!"
 
-    # If NOT logged in, show the Lock Screen with the "Back to Main Website" button
     return """
     <!DOCTYPE html>
     <html lang="en">
@@ -106,20 +103,15 @@ async def admin_portal(request: Request):
         <title>Admin Login</title>
     </head>
     <body style="background:#111; color:white; font-family:system-ui; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
-        <form action="/admin/login" method="POST" style="background:#222; padding:30px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); text-align:center; width:90%; max-width:400px; box-sizing:border-box;">
+        <form onsubmit="sessionStorage.setItem('vault_auth', 'true');" action="/admin/login" method="POST" style="background:#222; padding:30px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); text-align:center; width:90%; max-width:400px;">
             <h2 style="margin-top:0; color:#f39c12;">Admin Vault</h2>
-            
-            <input type="password" id="pwd" name="password" placeholder="Master Password" style="width:100%; padding:12px; margin-bottom:10px; border-radius:6px; border:none; background:#333; color:white; box-sizing:border-box;" required>
-            
+            <input type="password" id="pwd" name="password" placeholder="Master Password" style="width:100%; padding:12px; margin-bottom:10px; border-radius:6px; border:none; background:#333; color:white;" required>
             <div style="text-align: left; margin-bottom: 20px; font-size: 14px; color: #aaa;">
                 <input type="checkbox" id="showPwd" onclick="document.getElementById('pwd').type = this.checked ? 'text' : 'password'">
                 <label for="showPwd" style="cursor:pointer;">Show Password</label>
             </div>
-            
             <button type="submit" style="width:100%; padding:12px; background:#f39c12; border:none; border-radius:6px; font-weight:bold; cursor:pointer; color:#111; margin-bottom: 15px;">Authenticate</button>
-            
-            <!-- The New User Interface Button -->
-            <a href="/" style="display:block; color:#aaa; text-decoration:none; font-size:14px; padding:10px; border:1px solid #444; border-radius:6px; transition:0.3s;" onmouseover="this.style.background='#333'" onmouseout="this.style.background='transparent'">← Back to Main Website</a>
+            <a href="/" style="display:block; color:#aaa; text-decoration:none; font-size:14px; padding:10px; border:1px solid #444; border-radius:6px;">← Back to Main Website</a>
         </form>
     </body>
     </html>
@@ -129,12 +121,10 @@ async def admin_portal(request: Request):
 async def process_login(password: str = Form(...)):
     if password == ADMIN_PASS:
         response = RedirectResponse(url="/admin", status_code=303)
-        # REMOVED max_age! This is now a pure "Session Cookie" that dies when the tab closes.
         response.set_cookie(key="admin_lock", value="granted", httponly=True, secure=True)
         return response
     return HTMLResponse("<h1 style='color:red; text-align:center; margin-top:50px;'>INCORRECT PASSWORD</h1>", status_code=401)
 
-# The Logout Route (Destroys the cookie and sends you back to the lock screen)
 @app.post("/admin/logout")
 async def logout():
     response = RedirectResponse(url="/admin", status_code=303)
@@ -150,36 +140,65 @@ async def fetch_cloud_projects():
     except Exception:
         return []
 
+# The Dual-Upload Engine
 @app.post("/api/admin/projects", dependencies=[Depends(verify_security_clearance)])
 async def upload_to_cloud(
     title: str = Form(...),
     desc: str = Form(...),
-    zipfile: UploadFile = File(None)
+    zipfile: UploadFile = File(None),
+    image: UploadFile = File(None)
 ):
-    filename = ""
+    zip_name = ""
+    img_name = ""
+
     if zipfile:
-        filename = zipfile.filename
-        file_bytes = await zipfile.read()
+        zip_name = zipfile.filename
         supabase.storage.from_("projects-vault").upload(
-            path=f"files/{filename}", 
-            file=file_bytes, 
+            path=f"files/{zip_name}", 
+            file=await zipfile.read(), 
             file_options={"content-type": zipfile.content_type}
+        )
+    
+    if image:
+        img_name = image.filename
+        supabase.storage.from_("images-vault").upload(
+            path=f"covers/{img_name}", 
+            file=await image.read(), 
+            file_options={"content-type": image.content_type}
         )
         
     supabase.table("projects").insert({
         "title": title,
         "description": desc,
-        "filename": filename
+        "filename": zip_name,
+        "image_filename": img_name
     }).execute()
     
     return {"status": "Uploaded"}
 
+# The Ultimate Deep-Clean Delete Engine
 @app.delete("/api/admin/projects", dependencies=[Depends(verify_security_clearance)])
 async def remove_from_cloud(request: Request):
     data = await request.json()
     for pid in data.get("ids", []):
+        # 1. Fetch file names from DB
+        project_data = supabase.table("projects").select("filename, image_filename").eq("id", pid).execute()
+        
+        if project_data.data:
+            proj = project_data.data[0]
+            zip_name = proj.get("filename")
+            img_name = proj.get("image_filename")
+
+            # 2. Destroy physical files in cloud buckets
+            if zip_name:
+                supabase.storage.from_("projects-vault").remove([f"files/{zip_name}"])
+            if img_name:
+                supabase.storage.from_("images-vault").remove([f"covers/{img_name}"])
+                
+        # 3. Destroy database record
         supabase.table("projects").delete().eq("id", pid).execute()
-    return {"status": "Deleted"}
+        
+    return {"status": "Completely purged"}
 
 
 # Mount front-end static files
