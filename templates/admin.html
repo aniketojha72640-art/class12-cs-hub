@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -19,7 +19,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- Header & Logout -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #222; padding: 15px 20px; border-radius: 12px;">
             <h1 style="color: #f39c12; margin: 0; font-size: 24px;">Admin Dashboard</h1>
             <form action="/admin/logout" method="POST" style="margin: 0;" onsubmit="sessionStorage.removeItem('vault_auth');">
@@ -27,11 +26,12 @@
             </form>
         </div>
 
-        <!-- Upload Form -->
         <div class="card">
             <h2>Upload / Edit Project</h2>
             <form id="uploadForm">
                 <input type="text" id="title" name="title" placeholder="Project Title" required>
+                <!-- NEW CATEGORY INPUT -->
+                <input type="text" id="category" name="category" placeholder="Intro One-Liner (e.g., FINANCE & LOGS)" required>
                 <textarea id="desc" name="desc" placeholder="Project Description..." rows="3" required></textarea>
                 
                 <label style="display:block; margin-top:15px; color:#aaa;">Upload Project Images (Multiple):</label>
@@ -45,13 +45,12 @@
             <p id="statusMsg" style="font-weight:bold; margin-top:15px;"></p>
         </div>
 
-        <!-- Database View -->
         <div class="card">
             <h2>Live Database</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>Title</th>
+                        <th>Title & Category</th>
                         <th>Files Attached</th>
                         <th>Action</th>
                     </tr>
@@ -64,14 +63,12 @@
     </div>
 
     <script>
-        // Session Killer
         if (!sessionStorage.getItem("vault_auth")) {
             fetch('/admin/logout', {method: 'POST'}).then(() => window.location.href = "/admin");
         }
 
         let editModeId = null;
 
-        // Upload & Edit Logic
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const form = e.target;
@@ -111,10 +108,11 @@
             }
         });
 
-        // Trigger Edit Mode
-        function editProject(id, title, desc) {
+        // Trigger Edit Mode (Updated to handle Category)
+        function editProject(id, title, category, desc) {
             editModeId = id;
             document.getElementById('title').value = title;
+            document.getElementById('category').value = category;
             document.getElementById('desc').value = desc;
             
             document.getElementById('images').required = false;
@@ -124,7 +122,6 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Fetch Data Logic
         async function fetchProjects() {
             const tbody = document.getElementById('projectList');
             try {
@@ -140,13 +137,14 @@
                 data.forEach(proj => {
                     const tr = document.createElement('tr');
                     const safeTitle = proj.title.replace(/'/g, "\\'");
+                    const safeCat = proj.category ? proj.category.replace(/'/g, "\\'") : "NEW UPLOAD";
                     const safeDesc = proj.description.replace(/'/g, "\\'");
                     
                     tr.innerHTML = `
-                        <td><strong>${proj.title}</strong></td>
-                        <td style="color:#aaa; font-size:12px;">ZIP: ${proj.filename || 'None'}<br>IMG: ${proj.image_filename || 'None'}</td>
+                        <td><strong>${proj.title}</strong><br><small style="color:#f39c12;">${proj.category || "NEW UPLOAD"}</small></td>
+                        <td style="color:#aaa; font-size:12px;">ZIP: ${proj.zip_file || 'None'}<br>IMG: Attached</td>
                         <td>
-                            <button onclick="editProject(${proj.id}, '${safeTitle}', '${safeDesc}')" style="background:#3498db; color:white; padding:6px 12px; margin-right:5px; border-radius:4px; border:none; cursor:pointer;">Edit</button>
+                            <button onclick="editProject(${proj.id}, '${safeTitle}', '${safeCat}', '${safeDesc}')" style="background:#3498db; color:white; padding:6px 12px; margin-right:5px; border-radius:4px; border:none; cursor:pointer;">Edit</button>
                             <button class="delete-btn" onclick="deleteProject(${proj.id})">Delete</button>
                         </td>
                     `;
@@ -157,7 +155,6 @@
             }
         }
 
-        // Delete Logic
         async function deleteProject(id) {
             if(!confirm("Are you sure? This will permanently delete the text, image, and ZIP file.")) return;
             
