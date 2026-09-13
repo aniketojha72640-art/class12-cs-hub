@@ -12,6 +12,33 @@
     outline: none !important; 
     user-select: none;
   }
+
+  /* 1. Fix the boxy image */
+  #preview-image {
+    border-radius: 16px !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+  }
+  
+  /* 2. Soften the modal background */
+  .modal-content {
+    border-radius: 24px !important;
+    border: none !important;
+  }
+
+  /* 3. Make the buttons sleek and uniform */
+  #modal-prev, #modal-next {
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #1a1a1a !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+    width: 45px !important;
+    height: 45px !important;
+    border-radius: 50% !important;
+  }
+  
+  /* 4. Position buttons neatly */
+  #modal-prev { left: 15px !important; }
+  #modal-next { right: 15px !important; }
 </style>
 
 </head>
