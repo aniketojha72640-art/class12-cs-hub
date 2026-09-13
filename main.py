@@ -122,17 +122,35 @@ async def logout():
     return response
 
 # Cloud Data APIs
-@app.get("/api/admin/projects")
-async def fetch_cloud_projects():
+@app.get("/api/projects")
+async def get_projects():
     try:
         data = supabase.table("projects").select("*").execute()
-        return data.data
+        public_projects = []
+        for p in data.data:
+            img_urls = []
+            if p.get("image_filename"):
+                for img in p["image_filename"].split(","):
+                    url = supabase.storage.from_("images-vault").get_public_url(f"covers/{img}")
+                    img_urls.append(url)
+            
+            public_projects.append({
+                "id": p["id"],
+                "title": p["title"],
+                "category": p.get("category") or "NEW UPLOAD",
+                "description": p["description"],
+                "zip_file": p.get("filename", ""),
+                "images": img_urls,
+                "color": "#f39c12"
+            })
+        return public_projects
     except Exception:
         return []
 
 @app.post("/api/admin/projects", dependencies=[Depends(verify_security_clearance)])
 async def upload_to_cloud(
     title: str = Form(...),
+    category: str = Form(...),
     desc: str = Form(...),
     zipfile: UploadFile = File(None),
     images: List[UploadFile] = File(None)
@@ -148,7 +166,7 @@ async def upload_to_cloud(
                 supabase.storage.from_("images-vault").upload(path=f"covers/{img.filename}", file=await img.read())
                 img_names.append(img.filename)
     supabase.table("projects").insert({
-        "title": title, "description": desc, "filename": zip_name, "image_filename": ",".join(img_names)
+        "title": title, "category": category, "description": desc, "filename": zip_name, "image_filename": ",".join(img_names)
     }).execute()
     return {"status": "Uploaded"}
 
@@ -156,11 +174,12 @@ async def upload_to_cloud(
 async def update_cloud_project(
     id: int = Form(...),
     title: str = Form(...),
+    category: str = Form(...),
     desc: str = Form(...),
     zipfile: UploadFile = File(None),
     images: List[UploadFile] = File(None)
 ):
-    update_data = {"title": title, "description": desc}
+    update_data = {"title": title, "category": category, "description": desc}
     if zipfile and zipfile.filename:
         old = supabase.table("projects").select("filename").eq("id", id).execute()
         if old.data and old.data[0].get("filename"):
@@ -197,7 +216,6 @@ async def remove_from_cloud(request: Request):
                     supabase.storage.from_("images-vault").remove([f"covers/{img}"])
         supabase.table("projects").delete().eq("id", pid).execute()
     return {"status": "Deleted"}
-
 
 # Mount front-end static files
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
