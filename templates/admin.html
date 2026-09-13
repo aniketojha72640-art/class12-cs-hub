@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Vault</title>
+    <style>
+        body { background: #111; color: white; font-family: system-ui, sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        .card { background: #222; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        input, textarea, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 6px; border: none; box-sizing: border-box; font-family: inherit; }
+        input, textarea { background: #333; color: white; }
+        button { background: #f39c12; color: #111; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        button:hover { background: #e67e22; }
+        table { width: 100%; text-align: left; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border-bottom: 1px solid #444; }
+        .delete-btn { background: #e74c3c; color: white; padding: 6px 12px; margin: 0; width: auto; font-size: 14px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="color: #f39c12;">Admin Dashboard</h1>
+
+        <!-- Upload Form -->
+        <div class="card">
+            <h2>Upload New Project</h2>
+            <form id="uploadForm">
+                <input type="text" id="title" name="title" placeholder="Project Title (e.g., Library System)" required>
+                <textarea id="desc" name="desc" placeholder="Project Description..." rows="3" required></textarea>
+                <label style="display:block; margin-top:15px; color:#aaa;">Upload ZIP File:</label>
+                <input type="file" id="zipfile" name="zipfile" accept=".zip" required>
+                <button type="submit">Deploy to Cloud</button>
+            </form>
+            <p id="statusMsg" style="font-weight:bold; margin-top:15px;"></p>
+        </div>
+
+        <!-- Project Database View -->
+        <div class="card">
+            <h2>Live Database</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>File Name</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="projectList">
+                    <tr><td colspan="3">Loading data from Supabase...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 1. Upload Project Logic
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const statusMsg = document.getElementById('statusMsg');
+            
+            statusMsg.textContent = "Uploading to Cloud Storage... Please wait.";
+            statusMsg.style.color = "#f39c12";
+
+            try {
+                const res = await fetch('/api/admin/projects', {
+                    method: 'POST',
+                    body: new FormData(form)
+                });
+                
+                if(res.ok) {
+                    statusMsg.textContent = "Successfully deployed!";
+                    statusMsg.style.color = "#2ecc71";
+                    form.reset();
+                    fetchProjects(); // Refresh the table
+                } else {
+                    throw new Error("Upload Failed");
+                }
+            } catch (err) {
+                statusMsg.textContent = "Error uploading project. Check connection.";
+                statusMsg.style.color = "#e74c3c";
+            }
+        });
+
+        // 2. Fetch Projects from Database
+        async function fetchProjects() {
+            const tbody = document.getElementById('projectList');
+            try {
+                const res = await fetch('/api/admin/projects');
+                const data = await res.json();
+                
+                tbody.innerHTML = "";
+                if (data.length === 0) {
+                    tbody.innerHTML = "<tr><td colspan='3'>No projects found in vault.</td></tr>";
+                    return;
+                }
+
+                data.forEach(proj => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${proj.title}</strong></td>
+                        <td style="color:#aaa;">${proj.filename}</td>
+                        <td><button class="delete-btn" onclick="deleteProject(${proj.id})">Delete</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                tbody.innerHTML = "<tr><td colspan='3' style='color:#e74c3c;'>Error loading database.</td></tr>";
+            }
+        }
+
+        // 3. Delete Project Logic
+        async function deleteProject(id) {
+            if(!confirm("Are you sure you want to permanently delete this project?")) return;
+            
+            await fetch('/api/admin/projects', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ids: [id]})
+            });
+            fetchProjects(); // Refresh the table
+        }
+
+        // Run fetch when page loads!
+        fetchProjects();
+    </script>
+</body>
+</html>
