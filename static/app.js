@@ -43,13 +43,8 @@ scene.add(dirLight);
 
 function animate() {
   requestAnimationFrame(animate);
-  
-  // SLOWED DOWN: Gentle, premium spin
   logoGroup.rotation.y += 0.0015;
-  
-  // SLOWED DOWN: Relaxed up and down levitation
   logoGroup.position.y = -0.2 + Math.sin(Date.now() * 0.0008) * 0.15; 
-  
   renderer.render(scene, camera);
 }
 animate();
@@ -104,10 +99,12 @@ function updateUI() {
   
   updateMenuState();
   
-  previewImages = [
-    `https://placehold.co/800x500/ffb703/1a1a1a.png?text=${encodeURIComponent(p.title)}+Preview+1`,
-    `https://placehold.co/800x500/8e4b3e/ffffff.png?text=${encodeURIComponent(p.title)}+Preview+2`
-  ];
+  // THE MASTER FIX: Use the real images from the cloud database
+  if (p.images && p.images.length > 0) {
+      previewImages = p.images;
+  } else {
+      previewImages = [`https://placehold.co/800x500/1a1a1a/ffffff.png?text=No+Preview+Available`];
+  }
   currentImageIndex = 0;
 }
 
