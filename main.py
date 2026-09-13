@@ -70,7 +70,7 @@ from fastapi import Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from supabase import create_client, Client
 
-# 1. Load the One-and-Only Master Password from Render
+# Load the One-and-Only Master Password from Render
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 ADMIN_PASS = os.environ.get("ADMIN_PASSWORD", "fallback_lock")
@@ -80,15 +80,15 @@ supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# 2. The Ultimate Security Bouncer (HttpOnly Cookie Check)
+# The Ultimate Security Bouncer
 def verify_security_clearance(request: Request):
     if request.cookies.get("admin_lock") != "granted":
         raise HTTPException(status_code=401, detail="Access Denied.")
 
-# 3. The Isolated Login Page
+# The Isolated Login Page
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_portal(request: Request):
-    # If already securely logged in, show the dashboard!
+    # If already logged in, show the dashboard
     if request.cookies.get("admin_lock") == "granted":
         try:
             with open("templates/admin.html", "r") as file:
@@ -96,27 +96,52 @@ async def admin_portal(request: Request):
         except FileNotFoundError:
             return "Error: Make sure admin.html is inside a 'templates' folder!"
 
-    # If not logged in, show ONLY a master password box (No signup possible)
+    # If NOT logged in, show the Lock Screen with the "Back to Main Website" button
     return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin Login</title>
+    </head>
     <body style="background:#111; color:white; font-family:system-ui; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;">
-        <form action="/admin/login" method="POST" style="background:#222; padding:40px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); text-align:center;">
-            <h2 style="margin-top:0;">Admin Vault</h2>
-            <input type="password" name="password" placeholder="Master Password" style="width:100%; padding:12px; margin-bottom:20px; border-radius:6px; border:none; background:#333; color:white; box-sizing:border-box;" required>
-            <button type="submit" style="width:100%; padding:12px; background:#f39c12; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Authenticate</button>
+        <form action="/admin/login" method="POST" style="background:#222; padding:30px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); text-align:center; width:90%; max-width:400px; box-sizing:border-box;">
+            <h2 style="margin-top:0; color:#f39c12;">Admin Vault</h2>
+            
+            <input type="password" id="pwd" name="password" placeholder="Master Password" style="width:100%; padding:12px; margin-bottom:10px; border-radius:6px; border:none; background:#333; color:white; box-sizing:border-box;" required>
+            
+            <div style="text-align: left; margin-bottom: 20px; font-size: 14px; color: #aaa;">
+                <input type="checkbox" id="showPwd" onclick="document.getElementById('pwd').type = this.checked ? 'text' : 'password'">
+                <label for="showPwd" style="cursor:pointer;">Show Password</label>
+            </div>
+            
+            <button type="submit" style="width:100%; padding:12px; background:#f39c12; border:none; border-radius:6px; font-weight:bold; cursor:pointer; color:#111; margin-bottom: 15px;">Authenticate</button>
+            
+            <!-- The New User Interface Button -->
+            <a href="/" style="display:block; color:#aaa; text-decoration:none; font-size:14px; padding:10px; border:1px solid #444; border-radius:6px; transition:0.3s;" onmouseover="this.style.background='#333'" onmouseout="this.style.background='transparent'">← Back to Main Website</a>
         </form>
     </body>
+    </html>
     """
 
 @app.post("/admin/login")
 async def process_login(password: str = Form(...)):
-    # Check if they know the one true password
     if password == ADMIN_PASS:
         response = RedirectResponse(url="/admin", status_code=303)
+        # REMOVED max_age! This is now a pure "Session Cookie" that dies when the tab closes.
         response.set_cookie(key="admin_lock", value="granted", httponly=True, secure=True)
         return response
     return HTMLResponse("<h1 style='color:red; text-align:center; margin-top:50px;'>INCORRECT PASSWORD</h1>", status_code=401)
 
-# 4. Cloud Data APIs (Completely Protected by the Bouncer!)
+# The Logout Route (Destroys the cookie and sends you back to the lock screen)
+@app.post("/admin/logout")
+async def logout():
+    response = RedirectResponse(url="/admin", status_code=303)
+    response.delete_cookie("admin_lock")
+    return response
+
+# Cloud Data APIs
 @app.get("/api/admin/projects")
 async def fetch_cloud_projects():
     try:
@@ -155,6 +180,7 @@ async def remove_from_cloud(request: Request):
     for pid in data.get("ids", []):
         supabase.table("projects").delete().eq("id", pid).execute()
     return {"status": "Deleted"}
+
 
 # Mount front-end static files
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
