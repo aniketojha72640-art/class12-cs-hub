@@ -44,24 +44,26 @@ PROJECTS = [
 ]
 
 @app.get("/api/projects")
-def get_projects():
-    return PROJECTS
-
-@app.get("/api/download/{project_id}")
-def download_project(project_id: str):
-    project = next((p for p in PROJECTS if p["id"] == project_id), None)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    file_path = os.path.join("projects", project["zip_file"])
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="ZIP file not found")
+async def get_projects():
+    try:
+        # Fetch the live data from Supabase
+        data = supabase.table("projects").select("*").execute()
         
-    return FileResponse(
-        path=file_path,
-        filename=f"{project['title'].lower().replace(' ', '_')}.zip",
-        media_type="application/zip"
-    )
+        # Format the data so your Three.js frontend understands it
+        public_projects = []
+        for p in data.data:
+            public_projects.append({
+                "id": p["id"],
+                "title": p["title"],
+                "category": "NEW UPLOAD",       # Default fallback category
+                "description": p["description"],
+                "zip_file": p.get("filename", ""),
+                "color": "#f39c12"              # Default 3D box color
+            })
+        return public_projects
+    except Exception:
+        return []
+
 
 
 # ==========================================
