@@ -7,62 +7,48 @@ from typing import List
 
 app = FastAPI(title="Class 12 CS Python Hub")
 
-# Catalog of your management projects (scalable to 40+ projects)
-PROJECTS = [
-    {
-        "id": "1",
-        "title": "STUDENT RECORD SYSTEM",
-        "category": "ACADEMIC MANAGEMENT",
-        "description": "Complete Class 12 CS project featuring MySQL database connectivity, CRUD operations, and automated report card generation.",
-        "zip_file": "demo_project.zip",
-        "color": "#38bdf8"
-    },
-    {
-        "id": "2",
-        "title": "HOSPITAL MANAGEMENT",
-        "category": "HEALTHCARE SYSTEM",
-        "description": "Full patient admissions tracker, doctor appointment scheduler, and automated billing engine in pure Python.",
-        "zip_file": "demo_project.zip",
-        "color": "#34d399"
-    },
-    {
-        "id": "3",
-        "title": "LIBRARY CATALOG SYSTEM",
-        "category": "RESOURCE TRACKER",
-        "description": "Automated book check-in/check-out system with late fine calculator, ISBN lookup, and full SQL transaction handling.",
-        "zip_file": "demo_project.zip",
-        "color": "#a78bfa"
-    },
-    {
-        "id": "4",
-        "title": "BANKING TRANSACTION SYSTEM",
-        "category": "FINANCE & LOGS",
-        "description": "High-accuracy transaction engine with PIN verification, account balance tracking, and PDF passbook generation.",
-        "zip_file": "demo_project.zip",
-        "color": "#f59e0b"
-    }
-]
-
 @app.get("/api/projects")
 async def get_projects():
     try:
-        # Fetch the live data from Supabase
         data = supabase.table("projects").select("*").execute()
-        
-        # Format the data so your Three.js frontend understands it
         public_projects = []
         for p in data.data:
+            # Ask Supabase for the real public links for every image
+            img_urls = []
+            if p.get("image_filename"):
+                for img in p["image_filename"].split(","):
+                    url = supabase.storage.from_("images-vault").get_public_url(f"covers/{img}")
+                    img_urls.append(url)
+            
             public_projects.append({
                 "id": p["id"],
                 "title": p["title"],
-                "category": "NEW UPLOAD",       # Default fallback category
+                "category": "NEW UPLOAD",
                 "description": p["description"],
                 "zip_file": p.get("filename", ""),
-                "color": "#f39c12"              # Default 3D box color
+                "images": img_urls, # Sending the real cloud images to your frontend!
+                "color": "#f39c12"
             })
         return public_projects
     except Exception:
         return []
+
+@app.get("/api/download/{project_id}")
+async def download_project(project_id: int):
+    try:
+        # Check the database for the exact ZIP filename
+        data = supabase.table("projects").select("filename").eq("id", project_id).execute()
+        
+        if not data.data or not data.data[0].get("filename"):
+            raise HTTPException(status_code=404, detail="ZIP file not found in database")
+            
+        # Generate the public cloud link and instantly redirect the user's browser to download it
+        filename = data.data[0]["filename"]
+        public_url = supabase.storage.from_("projects-vault").get_public_url(f"files/{filename}")
+        
+        return RedirectResponse(url=public_url)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Error fetching file")
 
 
 
