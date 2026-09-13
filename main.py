@@ -61,8 +61,7 @@ def download_project(project_id: str):
         media_type="application/zip"
     )
 
-# Mount front-end static files
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
 # ==========================================
 # SUPER ADMIN VAULT - ISOLATED FROM FRONTEND
 # ==========================================
@@ -156,3 +155,6 @@ async def remove_from_cloud(request: Request):
     for pid in data.get("ids", []):
         supabase.table("projects").delete().eq("id", pid).execute()
     return {"status": "Deleted"}
+
+# Mount front-end static files
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
