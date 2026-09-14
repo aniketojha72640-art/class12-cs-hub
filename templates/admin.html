@@ -19,6 +19,7 @@
 </head>
 <body>
     <div class="container">
+        <!-- Secure Header with Logout -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #222; padding: 15px 20px; border-radius: 12px;">
             <h1 style="color: #f39c12; margin: 0; font-size: 24px;">Admin Dashboard</h1>
             <form action="/admin/logout" method="POST" style="margin: 0;" onsubmit="sessionStorage.removeItem('vault_auth');">
@@ -26,25 +27,26 @@
             </form>
         </div>
 
+        <!-- Upload & Update Form -->
         <div class="card">
-            <h2>Upload / Edit Project</h2>
+            <h2 id="formHeader">Upload New Project</h2>
             <form id="uploadForm">
                 <input type="text" id="title" name="title" placeholder="Project Title" required>
-                <!-- NEW CATEGORY INPUT -->
                 <input type="text" id="category" name="category" placeholder="Intro One-Liner (e.g., FINANCE & LOGS)" required>
                 <textarea id="desc" name="desc" placeholder="Project Description..." rows="3" required></textarea>
                 
-                <label style="display:block; margin-top:15px; color:#aaa;">Upload Project Images (Multiple):</label>
+                <label style="display:block; margin-top:15px; color:#aaa;">Upload Images (Multiple allowed):</label>
                 <input type="file" id="images" name="images" accept="image/*" multiple required>
 
                 <label style="display:block; margin-top:15px; color:#aaa;">Upload ZIP File:</label>
                 <input type="file" id="zipfile" name="zipfile" accept=".zip" required>
                 
-                <button type="submit">Deploy to Cloud</button>
+                <button type="submit" id="submitBtn">Deploy to Cloud</button>
             </form>
             <p id="statusMsg" style="font-weight:bold; margin-top:15px;"></p>
         </div>
 
+        <!-- Live Database -->
         <div class="card">
             <h2>Live Database</h2>
             <table>
@@ -63,12 +65,14 @@
     </div>
 
     <script>
+        // Ghost Session Killer
         if (!sessionStorage.getItem("vault_auth")) {
             fetch('/admin/logout', {method: 'POST'}).then(() => window.location.href = "/admin");
         }
 
         let editModeId = null;
 
+        // Form Submit Logic (Handles both POST and PUT)
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const form = e.target;
@@ -82,20 +86,18 @@
             if (editModeId) formData.append('id', editModeId);
 
             try {
-                const res = await fetch('/api/admin/projects', {
-                    method: method,
-                    body: formData
-                });
-                
+                const res = await fetch('/api/admin/projects', { method: method, body: formData });
                 if(res.ok) {
                     statusMsg.textContent = editModeId ? "Successfully updated!" : "Successfully deployed!";
                     statusMsg.style.color = "#2ecc71";
                     
+                    // Reset Form
                     form.reset();
                     editModeId = null;
+                    document.getElementById('formHeader').textContent = "Upload New Project";
+                    document.getElementById('submitBtn').textContent = "Deploy to Cloud";
                     document.getElementById('images').required = true;
                     document.getElementById('zipfile').required = true;
-                    document.querySelector('#uploadForm button[type="submit"]').textContent = "Deploy to Cloud";
                     
                     fetchProjects();
                     setTimeout(() => { statusMsg.textContent = ""; }, 3000);
@@ -108,20 +110,7 @@
             }
         });
 
-        // Trigger Edit Mode (Updated to handle Category)
-        function editProject(id, title, category, desc) {
-            editModeId = id;
-            document.getElementById('title').value = title;
-            document.getElementById('category').value = category;
-            document.getElementById('desc').value = desc;
-            
-            document.getElementById('images').required = false;
-            document.getElementById('zipfile').required = false;
-            
-            document.querySelector('#uploadForm button[type="submit"]').textContent = "Update Cloud Project";
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
+        // Safe Database Rendering
         async function fetchProjects() {
             const tbody = document.getElementById('projectList');
             try {
@@ -136,18 +125,44 @@
 
                 data.forEach(proj => {
                     const tr = document.createElement('tr');
-                    const safeTitle = proj.title.replace(/'/g, "\\'");
-                    const safeCat = proj.category ? proj.category.replace(/'/g, "\\'") : "NEW UPLOAD";
-                    const safeDesc = proj.description.replace(/'/g, "\\'");
                     
-                    tr.innerHTML = `
-                        <td><strong>${proj.title}</strong><br><small style="color:#f39c12;">${proj.category || "NEW UPLOAD"}</small></td>
-                        <td style="color:#aaa; font-size:12px;">ZIP: ${proj.zip_file || 'None'}<br>IMG: Attached</td>
-                        <td>
-                            <button onclick="editProject(${proj.id}, '${safeTitle}', '${safeCat}', '${safeDesc}')" style="background:#3498db; color:white; padding:6px 12px; margin-right:5px; border-radius:4px; border:none; cursor:pointer;">Edit</button>
-                            <button class="delete-btn" onclick="deleteProject(${proj.id})">Delete</button>
-                        </td>
-                    `;
+                    // Info Column
+                    const tdInfo = document.createElement('td');
+                    tdInfo.innerHTML = `<strong>${proj.title || 'Untitled'}</strong><br><small style="color:#f39c12;">${proj.category || "NEW UPLOAD"}</small>`;
+                    
+                    // Files Column
+                    const tdFiles = document.createElement('td');
+                    tdFiles.innerHTML = `<span style="color:#aaa; font-size:12px;">ZIP: ${proj.filename || 'None'}<br>IMG: Attached</span>`;
+                    
+                    // Action Column
+                    const tdAction = document.createElement('td');
+                    
+                    const editBtn = document.createElement('button');
+                    editBtn.textContent = 'Edit';
+                    editBtn.style = "background:#3498db; color:white; padding:6px 12px; margin-right:5px; border-radius:4px; border:none; cursor:pointer;";
+                    editBtn.onclick = () => {
+                        editModeId = proj.id;
+                        document.getElementById('title').value = proj.title || "";
+                        document.getElementById('category').value = proj.category || "";
+                        document.getElementById('desc').value = proj.description || "";
+                        document.getElementById('images').required = false;
+                        document.getElementById('zipfile').required = false;
+                        document.getElementById('formHeader').textContent = "Update Existing Project";
+                        document.getElementById('submitBtn').textContent = "Save Changes";
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    };
+                    
+                    const delBtn = document.createElement('button');
+                    delBtn.textContent = 'Delete';
+                    delBtn.className = 'delete-btn';
+                    delBtn.onclick = () => deleteProject(proj.id);
+                    
+                    tdAction.appendChild(editBtn);
+                    tdAction.appendChild(delBtn);
+                    tr.appendChild(tdInfo);
+                    tr.appendChild(tdFiles);
+                    tr.appendChild(tdAction);
+                    
                     tbody.appendChild(tr);
                 });
             } catch (err) {
@@ -156,8 +171,7 @@
         }
 
         async function deleteProject(id) {
-            if(!confirm("Are you sure? This will permanently delete the text, image, and ZIP file.")) return;
-            
+            if(!confirm("Are you sure you want to permanently delete this project?")) return;
             await fetch('/api/admin/projects', {
                 method: 'DELETE',
                 headers: {'Content-Type': 'application/json'},
