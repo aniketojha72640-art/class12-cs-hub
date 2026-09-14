@@ -216,6 +216,34 @@ async def remove_from_cloud(request: Request):
                     supabase.storage.from_("images-vault").remove([f"covers/{img}"])
         supabase.table("projects").delete().eq("id", pid).execute()
     return {"status": "Deleted"}
+@app.put("/api/admin/projects", dependencies=[Depends(verify_security_clearance)])
+async def update_cloud_project(
+    id: int = Form(...),
+    title: str = Form(...),
+    desc: str = Form(...),
+    zipfile: UploadFile = File(None),
+    image: UploadFile = File(None)
+):
+    update_data = {"title": title, "description": desc}
+    
+    # Safely swap ZIP if a new one is uploaded
+    if zipfile and zipfile.filename:
+        old_data = supabase.table("projects").select("filename").eq("id", id).execute()
+        if old_data.data and old_data.data[0].get("filename"):
+            supabase.storage.from_("projects-vault").remove([f"files/{old_data.data[0]['filename']}"])
+        supabase.storage.from_("projects-vault").upload(path=f"files/{zipfile.filename}", file=await zipfile.read())
+        update_data["filename"] = zipfile.filename
+
+    # Safely swap Image if a new one is uploaded
+    if image and image.filename:
+        old_data = supabase.table("projects").select("image_filename").eq("id", id).execute()
+        if old_data.data and old_data.data[0].get("image_filename"):
+            supabase.storage.from_("images-vault").remove([f"covers/{old_data.data[0]['image_filename']}"])
+        supabase.storage.from_("images-vault").upload(path=f"covers/{image.filename}", file=await image.read())
+        update_data["image_filename"] = image.filename
+
+    supabase.table("projects").update(update_data).eq("id", id).execute()
+    return {"status": "Project completely updated"}
 
 # Mount front-end static files
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
