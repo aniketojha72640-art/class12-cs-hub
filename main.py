@@ -70,11 +70,15 @@ supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+from typing import List
+
+# ==========================================
+# SUPER ADMIN VAULT - ISOLATED FROM FRONTEND
+# ==========================================
 def verify_security_clearance(request: Request):
     if request.cookies.get("admin_lock") != "granted":
         raise HTTPException(status_code=401, detail="Access Denied.")
 
-# Login Screen (with Session Storage Tag)
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_portal(request: Request):
     if request.cookies.get("admin_lock") == "granted":
@@ -121,7 +125,9 @@ async def logout():
     response.delete_cookie("admin_lock")
     return response
 
-# Cloud Data APIs
+# ==========================================
+# PUBLIC CLOUD APIs (For 3D Frontend)
+# ==========================================
 @app.get("/api/projects")
 async def get_projects():
     try:
@@ -147,6 +153,40 @@ async def get_projects():
     except Exception:
         return []
 
+from fastapi.responses import RedirectResponse
+
+@app.get("/api/download/{project_id}")
+async def download_project(project_id: str):
+    try:
+        # 1. Find the project in the database
+        data = supabase.table("projects").select("filename").eq("id", project_id).execute()
+        
+        if not data.data or not data.data[0].get("filename"):
+            return {"error": "No ZIP file found for this project."}
+            
+        filename = data.data[0]["filename"]
+        
+        # 2. Get the public download URL from your Supabase vault
+        file_url = supabase.storage.from_("projects-vault").get_public_url(filename)
+        
+        # 3. Redirect the user's browser directly to the cloud file
+        return RedirectResponse(url=file_url)
+        
+    except Exception as e:
+        return {"error": f"Failed to download: {str(e)}"}
+
+
+# ==========================================
+# SUPER ADMIN APIs (Protected)
+# ==========================================
+@app.get("/api/admin/projects")
+async def fetch_cloud_projects():
+    try:
+        data = supabase.table("projects").select("*").execute()
+        return data.data
+    except Exception:
+        return []
+
 @app.post("/api/admin/projects", dependencies=[Depends(verify_security_clearance)])
 async def upload_to_cloud(
     title: str = Form(...),
@@ -157,17 +197,25 @@ async def upload_to_cloud(
 ):
     zip_name = ""
     img_names = []
+    
     if zipfile and zipfile.filename:
         zip_name = zipfile.filename
         supabase.storage.from_("projects-vault").upload(path=f"files/{zip_name}", file=await zipfile.read())
+        
     if images:
         for img in images:
             if img.filename:
                 supabase.storage.from_("images-vault").upload(path=f"covers/{img.filename}", file=await img.read())
                 img_names.append(img.filename)
+                
     supabase.table("projects").insert({
-        "title": title, "category": category, "description": desc, "filename": zip_name, "image_filename": ",".join(img_names)
+        "title": title,
+        "category": category,
+        "description": desc,
+        "filename": zip_name,
+        "image_filename": ",".join(img_names)
     }).execute()
+    
     return {"status": "Uploaded"}
 
 @app.put("/api/admin/projects", dependencies=[Depends(verify_security_clearance)])
@@ -180,6 +228,7 @@ async def update_cloud_project(
     images: List[UploadFile] = File(None)
 ):
     update_data = {"title": title, "category": category, "description": desc}
+    
     if zipfile and zipfile.filename:
         old = supabase.table("projects").select("filename").eq("id", id).execute()
         if old.data and old.data[0].get("filename"):
@@ -206,9 +255,9 @@ async def update_cloud_project(
 async def remove_from_cloud(request: Request):
     data = await request.json()
     for pid in data.get("ids", []):
-        proj_data = supabase.table("projects").select("filename, image_filename").eq("id", pid).execute()
-        if proj_data.data:
-            proj = proj_data.data[0]
+        project_data = supabase.table("projects").select("filename, image_filename").eq("id", pid).execute()
+        if project_data.data:
+            proj = project_data.data[0]
             if proj.get("filename"):
                 supabase.storage.from_("projects-vault").remove([f"files/{proj.get('filename')}"])
             if proj.get("image_filename"):
@@ -216,34 +265,6 @@ async def remove_from_cloud(request: Request):
                     supabase.storage.from_("images-vault").remove([f"covers/{img}"])
         supabase.table("projects").delete().eq("id", pid).execute()
     return {"status": "Deleted"}
-@app.put("/api/admin/projects", dependencies=[Depends(verify_security_clearance)])
-async def update_cloud_project(
-    id: int = Form(...),
-    title: str = Form(...),
-    desc: str = Form(...),
-    zipfile: UploadFile = File(None),
-    image: UploadFile = File(None)
-):
-    update_data = {"title": title, "description": desc}
-    
-    # Safely swap ZIP if a new one is uploaded
-    if zipfile and zipfile.filename:
-        old_data = supabase.table("projects").select("filename").eq("id", id).execute()
-        if old_data.data and old_data.data[0].get("filename"):
-            supabase.storage.from_("projects-vault").remove([f"files/{old_data.data[0]['filename']}"])
-        supabase.storage.from_("projects-vault").upload(path=f"files/{zipfile.filename}", file=await zipfile.read())
-        update_data["filename"] = zipfile.filename
-
-    # Safely swap Image if a new one is uploaded
-    if image and image.filename:
-        old_data = supabase.table("projects").select("image_filename").eq("id", id).execute()
-        if old_data.data and old_data.data[0].get("image_filename"):
-            supabase.storage.from_("images-vault").remove([f"covers/{old_data.data[0]['image_filename']}"])
-        supabase.storage.from_("images-vault").upload(path=f"covers/{image.filename}", file=await image.read())
-        update_data["image_filename"] = image.filename
-
-    supabase.table("projects").update(update_data).eq("id", id).execute()
-    return {"status": "Project completely updated"}
-
+     
 # Mount front-end static files
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
