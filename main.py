@@ -190,18 +190,16 @@ async def fetch_cloud_projects():
 @app.post("/api/admin/projects", dependencies=[Depends(verify_security_clearance)])
 async def upload_to_cloud(
     title: str = Form(...),
-    category: str = Form(...),
+    category: str = Form(...),  # <-- ADDED THIS!
     desc: str = Form(...),
     zipfile: UploadFile = File(None),
     images: List[UploadFile] = File(None)
 ):
     zip_name = ""
     img_names = []
-    
     if zipfile and zipfile.filename:
         zip_name = zipfile.filename
         supabase.storage.from_("projects-vault").upload(path=f"files/{zip_name}", file=await zipfile.read())
-        
     if images:
         for img in images:
             if img.filename:
@@ -209,25 +207,24 @@ async def upload_to_cloud(
                 img_names.append(img.filename)
                 
     supabase.table("projects").insert({
-        "title": title,
-        "category": category,
-        "description": desc,
-        "filename": zip_name,
+        "title": title, 
+        "category": category, # <-- NOW SAVING TO CLOUD!
+        "description": desc, 
+        "filename": zip_name, 
         "image_filename": ",".join(img_names)
     }).execute()
-    
     return {"status": "Uploaded"}
 
 @app.put("/api/admin/projects", dependencies=[Depends(verify_security_clearance)])
 async def update_cloud_project(
     id: int = Form(...),
     title: str = Form(...),
-    category: str = Form(...),
+    category: str = Form(...), # <-- ADDED THIS!
     desc: str = Form(...),
     zipfile: UploadFile = File(None),
     images: List[UploadFile] = File(None)
 ):
-    update_data = {"title": title, "category": category, "description": desc}
+    update_data = {"title": title, "category": category, "description": desc} # <-- NOW UPDATING IN CLOUD!
     
     if zipfile and zipfile.filename:
         old = supabase.table("projects").select("filename").eq("id", id).execute()
@@ -240,7 +237,8 @@ async def update_cloud_project(
         old = supabase.table("projects").select("image_filename").eq("id", id).execute()
         if old.data and old.data[0].get("image_filename"):
             for old_img in old.data[0]['image_filename'].split(","):
-                supabase.storage.from_("images-vault").remove([f"covers/{old_img}"])
+                if old_img:
+                    supabase.storage.from_("images-vault").remove([f"covers/{old_img}"])
         new_imgs = []
         for img in images:
             if img.filename:
@@ -250,6 +248,7 @@ async def update_cloud_project(
         
     supabase.table("projects").update(update_data).eq("id", id).execute()
     return {"status": "Updated"}
+
 
 @app.delete("/api/admin/projects", dependencies=[Depends(verify_security_clearance)])
 async def remove_from_cloud(request: Request):
