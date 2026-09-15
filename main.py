@@ -33,22 +33,31 @@ async def get_projects():
     except Exception:
         return []
 
-@app.get("/api/download/{project_id}")
-async def download_project(project_id: int):
+@app.get("/api/projects")
+async def get_projects():
     try:
-        # Check the database for the exact ZIP filename
-        data = supabase.table("projects").select("filename").eq("id", project_id).execute()
-        
-        if not data.data or not data.data[0].get("filename"):
-            raise HTTPException(status_code=404, detail="ZIP file not found in database")
+        data = supabase.table("projects").select("*").execute()
+        public_projects = []
+        for p in data.data:
+            img_urls = []
+            if p.get("image_filename"):
+                for img in p["image_filename"].split(","):
+                    url = supabase.storage.from_("images-vault").get_public_url(f"covers/{img}")
+                    img_urls.append(url)
             
-        # Generate the public cloud link and instantly redirect the user's browser to download it
-        filename = data.data[0]["filename"]
-        public_url = supabase.storage.from_("projects-vault").get_public_url(f"files/{filename}")
-        
-        return RedirectResponse(url=public_url)
+            public_projects.append({
+                "id": p["id"],
+                "title": p["title"],
+                "category": p.get("category") or "NEW UPLOAD", # <-- THIS IS THE CRITICAL FIX!
+                "description": p["description"],
+                "zip_file": p.get("filename", ""),
+                "images": img_urls,
+                "color": "#f39c12"
+            })
+        return public_projects
     except Exception:
-        raise HTTPException(status_code=404, detail="Error fetching file")
+        return []
+
 
 
 
