@@ -7,31 +7,7 @@ from typing import List
 
 app = FastAPI(title="Class 12 CS Python Hub")
 
-@app.get("/api/projects")
-async def get_projects():
-    try:
-        data = supabase.table("projects").select("*").execute()
-        public_projects = []
-        for p in data.data:
-            # Ask Supabase for the real public links for every image
-            img_urls = []
-            if p.get("image_filename"):
-                for img in p["image_filename"].split(","):
-                    url = supabase.storage.from_("images-vault").get_public_url(f"covers/{img}")
-                    img_urls.append(url)
-            
-            public_projects.append({
-                "id": p["id"],
-                "title": p["title"],
-                "category": "NEW UPLOAD",
-                "description": p["description"],
-                "zip_file": p.get("filename", ""),
-                "images": img_urls, # Sending the real cloud images to your frontend!
-                "color": "#f39c12"
-            })
-        return public_projects
-    except Exception:
-        return []
+
 
 @app.get("/api/projects")
 async def get_projects():
