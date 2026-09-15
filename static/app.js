@@ -123,7 +123,8 @@ function buildMenu() {
   });
 }
 
-fetch("/api/projects").then(res => res.json()).then(data => { projects = data; buildMenu(); updateUI(); });
+fetch("/api/projects?t=" + new Date().getTime()).then(res => res.json()).then(data => { projects = data; buildMenu(); updateUI(); });
+
 
 document.getElementById("btn-prev").addEventListener("click", () => {
   if (projects.length === 0) return;
