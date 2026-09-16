@@ -35,7 +35,18 @@ img_urls.append(url)
 return public_projects
 except Exception:
 return []
-
+​@app.get("/api/download/{project_id}")
+async def download_project(project_id: str):
+try:
+data = supabase.table("projects").select("filename").eq("id", project_id).execute()
+​if not data.data or not data.data[0].get("filename"):
+return {"error": "No ZIP file found for this project."}
+​filename = data.data[0]["filename"]
+​# THE CRITICAL FIX: Added "files/" to the path so it matches where the upload route put it!
+file_url = supabase.storage.from_("projects-vault").get_public_url(f"files/{filename}")
+​return RedirectResponse(url=file_url)
+​except Exception as e:
+return {"error": f"Failed to download: {str(e)}"}
 
 
 
