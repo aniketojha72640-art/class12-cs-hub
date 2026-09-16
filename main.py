@@ -11,28 +11,30 @@ app = FastAPI(title="Class 12 CS Python Hub")
 
 @app.get("/api/projects")
 async def get_projects():
-    try:
-        data = supabase.table("projects").select("*").execute()
-        public_projects = []
-        for p in data.data:
-            img_urls = []
-            if p.get("image_filename"):
-                for img in p["image_filename"].split(","):
-                    url = supabase.storage.from_("images-vault").get_public_url(f"covers/{img}")
-                    img_urls.append(url)
-            
-            public_projects.append({
-                "id": p["id"],
-                "title": p["title"],
-                "category": p.get("category") or "NEW UPLOAD", # <-- THIS IS THE CRITICAL FIX!
-                "description": p["description"],
-                "zip_file": p.get("filename", ""),
-                "images": img_urls,
-                "color": "#f39c12"
-            })
-        return public_projects
-    except Exception:
-        return []
+try:
+data = supabase.table("projects").select("*").execute()
+public_projects = []
+for p in data.data:
+img_urls = []
+if p.get("image_filename"):
+# UPGRADE: Added a safety check so empty strings don't cause ghost URLs
+for img in p["image_filename"].split(","):
+img = img.strip()
+if img:
+url = supabase.storage.from_("images-vault").get_public_url(f"covers/{img}")
+img_urls.append(url)
+​public_projects.append({
+"id": p["id"],
+"title": p["title"],
+"category": p.get("category") or "NEW UPLOAD",
+"description": p["description"],
+"zip_file": p.get("filename", ""),
+"images": img_urls,
+"color": "#f39c12"
+})
+return public_projects
+except Exception:
+return []
 
 
 
@@ -140,25 +142,19 @@ async def get_projects():
 
 from fastapi.responses import RedirectResponse
 
-@app.get("/api/download/{project_id}")
+​@app.get("/api/download/{project_id}")
 async def download_project(project_id: str):
-    try:
-        # 1. Find the project in the database
-        data = supabase.table("projects").select("filename").eq("id", project_id).execute()
-        
-        if not data.data or not data.data[0].get("filename"):
-            return {"error": "No ZIP file found for this project."}
-            
-        filename = data.data[0]["filename"]
-        
-        # 2. Get the public download URL from your Supabase vault
-        file_url = supabase.storage.from_("projects-vault").get_public_url(filename)
-        
-        # 3. Redirect the user's browser directly to the cloud file
-        return RedirectResponse(url=file_url)
-        
-    except Exception as e:
-        return {"error": f"Failed to download: {str(e)}"}
+try:
+data = supabase.table("projects").select("filename").eq("id", project_id).execute()
+​if not data.data or not data.data[0].get("filename"):
+return {"error": "No ZIP file found for this project."}
+​filename = data.data[0]["filename"]
+​# THE CRITICAL FIX: Added "files/" to the path so it matches where the upload route put it!
+file_url = supabase.storage.from_("projects-vault").get_public_url(f"files/{filename}")
+​from fastapi.responses import RedirectResponse
+return RedirectResponse(url=file_url)
+​except Exception as e:
+return {"error": f"Failed to download: {str(e)}"}
 
 
 # ==========================================
